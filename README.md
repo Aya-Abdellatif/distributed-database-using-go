@@ -7,28 +7,53 @@ This project implements a basic distributed database system in Go with a **Maste
 
 ## Architecture Overview
 
-* **Master Node**
+* **One Master Node**
 
   * Full DB write access.
-  * Can create and drop databases and tables.
   * Executes queries and replicates them to all slaves.
 
-* **Slave Nodes**
+* **Multiple Slave Nodes**
 
-  * Read/Write access only through replication from master.
+  * Handle read-only queries.
+  * Write access only through replication from master.
   * Cannot initiate create/drop operations themselves.
   * Listen for replicated queries and apply them locally.
+  
+ The communication between Master and Slaves is done using HTTP.
+
+---
+## System Architecture Diagram
+
+                 +-----------------------------+
+                 |         Master Node         |
+                 |-----------------------------|
+                 | - Write Access (POST /query)|
+                 | - Broadcast to Slaves       |
+                 +-----------------------------+
+                           |
+                    +------+------+
+                    |             |
+                    ▼             ▼
+            +-----------------+   +-----------------+
+            |    Slave Node   |   |    Slave Node   |
+            |-----------------|   |-----------------|
+            | - Read-only DB  |   | - Read-only DB  |
+            | - Listen (POST) |   | - Listen (POST) |
+            | - Read Access   |   | - Read Access   |
+            +-----------------+   +-----------------+
 
 ---
 
-## Project Structure
+## Folder Structure
 
 ```
-distributed-db/
+distributed-database-using-go/
 ├── master/
 │   └── master.go
-├── node/
-│   └── node.go
+├── slave/
+│   └── slave.go
+├── README.md
+└── report.pdf
 ```
 
 ---
@@ -76,9 +101,6 @@ You can adjust the listening port inside `node/node.go`.
 
 | Endpoint        | Method | Description                      |
 | --------------- | ------ | -------------------------------- |
-| `/create_db`    | POST   | Create a new database            |
-| `/create_table` | POST   | Create a table in a database     |
-| `/drop_db`      | POST   | Drop a database                  |
 | `/query`        | POST   | Execute a query and replicate it |
 
 ### Slave
@@ -86,6 +108,7 @@ You can adjust the listening port inside `node/node.go`.
 | Endpoint     | Method | Description                  |
 | ------------ | ------ | ---------------------------- |
 | `/replicate` | POST   | Receives and applies a query |
+| `/query`     | POST   |                              |
 
 ---
 
@@ -105,11 +128,9 @@ POST /create_db
 **Create Table**
 
 ```json
-POST /create_table
-{
-  "database": "testdb",
-  "query": "CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(50))"
-}
+curl -X POST http://localhost:8080/query \
+     -H "Content-Type: application/json" \
+     -d '{"database": "testdb", "query": "CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(50))"}'
 ```
 
 **Insert Data**
