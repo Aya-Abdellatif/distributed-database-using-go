@@ -1,15 +1,17 @@
 package main
+
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"bytes"
+
+	//"os"
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
-	//"github.com/gorilla/mux"
 )
 
 type QueryRequest struct {
@@ -19,97 +21,47 @@ type QueryRequest struct {
 
 var db *sql.DB
 var slaveURLs = []string{
-	"http://localhost:8081/replicate",
+	"http://192.168.1.142:8081/replicate",
+	//"http://localhost:8082/replicate",
 }
 
-func initDB(){
+//var masterLogger *log.Logger
+
+func initDB() {
 	var err error
-	db, err = sql.Open("mysql", "root:07775000a@tcp(127.0.0.1:3306)/")
+	db, err = sql.Open("mysql", "root:master_db_pass@tcp(127.0.0.1:3306)/")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Failed to connect to DB:", err)
 	}
+}
+
+/*func initLogger() {
+	logFile, err := os.OpenFile("master.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		log.Fatal("Error opening log file:", err)
+	}
+	masterLogger = log.New(logFile, "MASTER: ", log.Ldate|log.Ltime|log.Lshortfile)
+}*/
+
+func isDatabaseOperation(query string) bool {
+	q := strings.TrimSpace(strings.ToLower(query))
+	return strings.HasPrefix(q, "create database") || strings.HasPrefix(q, "drop database") ||
+		strings.HasPrefix(q, "create table") || strings.HasPrefix(q, "drop table")
+}
+
+func isWriteOperation(query string) bool {
+	q := strings.TrimSpace(strings.ToLower(query))
+	return strings.HasPrefix(q, "insert") || strings.HasPrefix(q, "update") || strings.HasPrefix(q, "delete")
 }
 
 func main() {
-	// Connect to MySQL
+	//initLogger()
 	initDB()
 	defer db.Close()
 
-	http.HandleFunc("/create_db", createDatabase)
-	http.HandleFunc("/create_table", createTable)
-	http.HandleFunc("/drop_db", dropDatabase)
 	http.HandleFunc("/query", handleQuery)
-
-	fmt.Println("[Master] Running on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
-}
-
-func createDatabase(w http.ResponseWriter, r *http.Request) {
-	/*if !isMaster{
-		http.Error(w, "Unauthorized: Only master can create/drop databases", 403)
-		return
-	}*/
-
-	var req QueryRequest
-	//json.NewDecoder(r.Body).Decode(&req)
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		fmt.Println("Error Received request:", req)
-		http.Error(w, "Invalid request", http.StatusBadRequest)
-		return
-	} else {
-		fmt.Println("Received request:", req)
-	}
-
-	_, err := db.Exec("CREATE DATABASE IF NOT EXISTS " + req.Database)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-	w.Write([]byte("Database created!"))
-}
-
-func createTable(w http.ResponseWriter, r *http.Request) {
-	var req QueryRequest
-	//json.NewDecoder(r.Body).Decode(&req)
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		fmt.Println("Error Received request:", req)
-		http.Error(w, "Invalid request", http.StatusBadRequest)
-		return
-	} else {
-		fmt.Println("Received request:", req)
-	}
-
-	_, err := db.Exec("USE " + req.Database)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	_, err = db.Exec(req.Query)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-	w.Write([]byte("Table created!"))
-}
-
-func dropDatabase(w http.ResponseWriter, r *http.Request) {
-	var req QueryRequest
-	//json.NewDecoder(r.Body).Decode(&req)
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		fmt.Println("Error Received request:", req)
-		http.Error(w, "Invalid request", http.StatusBadRequest)
-		return
-	} else {
-		fmt.Println("Received request:", req)
-	}
-
-	_, err := db.Exec("DROP DATABASE " + req.Database)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-	w.Write([]byte("Database dropped!"))
+	log.Println("Master running at :8080")
+	http.ListenAndServe(":8080", nil)
 }
 
 func handleQuery(w http.ResponseWriter, r *http.Request) {
@@ -118,86 +70,81 @@ func handleQuery(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
+	fmt.Println("Received request:", req)
 
-	// Block sensitive queries (master-only)
-	queryLower := strings.ToLower(req.Query)
-	if strings.Contains(queryLower, "create database") || 
-		strings.Contains(queryLower, "create table") || 
-		strings.Contains(queryLower, "drop database") {
-		http.Error(w, "This operation is allowed only via master admin endpoints.", http.StatusForbidden)
-		return
-	}
-
-	// Check if it's SELECT
-	if strings.HasPrefix(strings.ToLower(req.Query), "select") {
-		rows, err := db.Query(req.Query)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
+	if req.Database != "" {
+		if _, err := db.Exec("USE " + req.Database); err != nil {
+			http.Error(w, "Database not found", http.StatusBadRequest)
 			return
 		}
-		defer rows.Close()
-
-		cols, _ := rows.Columns()
-		result := []map[string]interface{}{}
-
-		for rows.Next() {
-			columns := make([]interface{}, len(cols))
-			columnPointers := make([]interface{}, len(cols))
-			for i := range columns {
-				columnPointers[i] = &columns[i]
-			}
-
-			if err := rows.Scan(columnPointers...); err != nil {
-				http.Error(w, err.Error(), 500)
-				return
-			}
-
-			rowMap := make(map[string]interface{})
-			for i, colName := range cols {
-				val := columnPointers[i].(*interface{})
-				rowMap[colName] = *val
-			}
-
-			result = append(result, rowMap)
-		}
-
-		json.NewEncoder(w).Encode(result)
-		return
 	}
 
-	// Other queries (INSERT, UPDATE, DELETE)
+	query := strings.TrimSpace(strings.ToLower(req.Query))
+	if strings.HasPrefix(query, "select") {
+		handleSelectQuery(w, req.Query)
+	} else if isWriteOperation(req.Query) || isDatabaseOperation(req.Query) { // && req.IsMaster) {
+		handleWriteAndReplicate(w, req)
+	} else {
+		http.Error(w, "Unsupported or unauthorized command", http.StatusBadRequest)
+	}
+}
+
+func handleSelectQuery(w http.ResponseWriter, query string) {
+	rows, err := db.Query(query)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	cols, _ := rows.Columns()
+	results := []map[string]interface{}{}
+
+	for rows.Next() {
+		columns := make([]interface{}, len(cols))
+		columnPointers := make([]interface{}, len(cols))
+		for i := range columns {
+			columnPointers[i] = &columns[i]
+		}
+		if err := rows.Scan(columnPointers...); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		row := make(map[string]interface{})
+		for i, col := range cols {
+			row[col] = *(columnPointers[i].(*interface{}))
+		}
+		results = append(results, row)
+	}
+	json.NewEncoder(w).Encode(results)
+}
+
+func handleWriteAndReplicate(w http.ResponseWriter, req QueryRequest) {
 	res, err := db.Exec(req.Query)
 	if err != nil {
-		http.Error(w, err.Error(), 500)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	rowsAffected, _ := res.RowsAffected()
-	w.Write([]byte(fmt.Sprintf("Query executed! Rows affected: %d\n", rowsAffected)))
-
-	// Replicate to slaves
-	for _, url := range slaveURLs {
-		if err := replicateToSlaves(url, req); err != nil {
-			http.Error(w, "Replication failed to "+url, http.StatusInternalServerError)
-			return
-		}	}
+	fmt.Fprintf(w, "Query executed. Rows affected: %d", rowsAffected)
+	replicateToSlaves(req)
 }
 
-func replicateToSlaves(url string, req QueryRequest) error {
+func replicateToSlaves(req QueryRequest) {
 	data, err := json.Marshal(req)
 	if err != nil {
 		log.Println("Error marshalling query request:", err)
-		return err
+		return
 	}
 
-	resp, err := http.Post(url, "application/json", bytes.NewReader(data))
-	if err != nil {
-		log.Println("Replication error to", url, ":", err)
-		return err
-	}
-	defer resp.Body.Close()
+	for _, url := range slaveURLs {
+		resp, err := http.Post(url, "application/json", bytes.NewReader(data))
+		if err != nil {
+			log.Println("Replication error to", url, ":", err)
+			return
+		}
+		defer resp.Body.Close()
 
-	log.Printf("Replicated to %s successfully. Status: %s\n", url, resp.Status)
-	return nil
+		log.Printf("Replicated to %s successfully. Status: %s\n", url, resp.Status)
+	}
 }
-
-

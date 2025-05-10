@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Employee Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      margin: 0;
+      background-color: #f8f9fa;
+    }
+
+  .navbar {
+  display: flex;
+  justify-content: center;
+  gap: 30px; /* Increased from 20px */
+  background-color: #343a40;
+  padding: 20px 0; /* Increased from 15px */
+}
+    .navbar a {
+      color: white;
+      text-decoration: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      transition: background 0.3s;
+    }
+
+    .navbar a:hover {
+      background-color: #495057;
+    }
+
+   .header-container {
+  position: relative;
+  height: 320px; /* Slightly taller */
+  background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.6)), url("./working.jpg") center/cover no-repeat;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0 50px; /* More horizontal padding */
+  color: white;
+}
+
+    .header-text {
+      font-size: 40px;
+      font-weight: bold;
+    }
+
+   .search-area {
+  display: flex;
+  margin-top: 30px; /* Increased from 20px */
+  gap: 15px; /* Increased from 10px */
+}
+
+    .search-bar, .search-button {
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 5px;
+      border: none;
+    }
+
+   .search-bar {
+  width: 400px; /* Your desired wider width */
+  max-width: none; /* Override inherited max-width */
+}
+
+.search-button {
+  width: 120px; /* Prevent it from stretching */
+  max-width: none;
+}
+
+
+    .search-button:hover {
+      background-color: rgb(83, 83, 83);
+    }
+
+    .section {
+  display: none;
+  padding: 40px 60px; /* Increased from 20px 40px */
+}
+
+    .section h2 {
+      margin-bottom: 25px;
+    }
+
+ input, button {
+  padding: 12px; /* Increased from 10px */
+  margin: 10px 0; /* More vertical space between fields */
+  font-size: 16px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  width: 100%;
+  max-width: 350px; /* Slightly wider inputs */
+}
+
+    button {
+      background-color: #272629;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: rgb(83, 83, 83);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      background-color: white;
+    }
+
+    th, td {
+      border: 1px solid #dee2e6;
+      padding: 10px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #e9ecef;
+    }
+
+    #results {
+      padding: 0 40px 40px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="navbar">
+    <a href="#" onclick="showSection('insert-section')"><i class="fas fa-plus"></i> Insert</a>
+    <a href="#" onclick="showSection('update-section')"><i class="fas fa-edit"></i> Update</a>
+    <a href="#" onclick="showSection('delete-section')"><i class="fas fa-trash"></i> Delete</a>
+    <a href="#" onclick="showSection('search-section')"><i class="fas fa-search"></i> Search Results</a>
+    <a href="#" onclick="displayAll()"><i class="fas fa-list"></i> Display All</a>
+  </div>
+
+  <div class="header-container">
+    <div class="header-text">Employee Manager</div>
+    
+    <div class="search-area">
+      <input id="search-keyword" class="search-bar" placeholder="Search by Name or Role" />
+      <button class="search-button" onclick="searchEmployees()">
+        <i class="fas fa-search"></i> Search
+      </button>
+    </div>
+  </div>
+
+  <!-- Insert Section -->
+  <div id="insert-section" class="section">
+    <h2>Insert Employee</h2>
+    <input id="insert-name" placeholder="Name" />
+    <input id="insert-age" placeholder="Age" type="number" />
+    <input id="insert-salary" placeholder="Salary" type="number" />
+    <input id="insert-address" placeholder="Address" />
+    <input id="insert-department" placeholder="Department" />
+    <input id="insert-role" placeholder="Role" />
+    <button onclick="insertEmployee()">Insert</button>
+  </div>
+
+  <!-- Update Section -->
+  <div id="update-section" class="section">
+    <h2>Update Employee</h2>
+    <input id="update-id" placeholder="ID" type="number" />
+    <input id="update-name" placeholder="New Name" />
+    <input id="update-role" placeholder="New Role" />
+    <button onclick="updateEmployee()">Update</button>
+  </div>
+
+  <!-- Delete Section -->
+  <div id="delete-section" class="section">
+    <h2>Delete Employee</h2>
+    <input id="delete-id" placeholder="ID" type="number" />
+    <button onclick="deleteEmployee()">Delete</button>
+  </div>
+
+  <!-- Search Section -->
+  <div id="search-section" class="section">
+    <h2>Search Results</h2>
+    <div id="results"></div>
+  </div>
+
+  <script>
+    const slaveUrl = "http://localhost:8081/query";
+    const database = "companyDB";
+
+    function postQuery(query) {
+      return fetch(slaveUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ database, query })
+      }).then(res => res.json());
+    }
+
+    function insertEmployee() {
+      const name = document.getElementById("insert-name").value;
+      const age = document.getElementById("insert-age").value;
+      const salary = document.getElementById("insert-salary").value;
+      const address = document.getElementById("insert-address").value;
+      const department = document.getElementById("insert-department").value;
+      const role = document.getElementById("insert-role").value;
+
+      const query = `INSERT INTO employee (name, age, salary, address, department, role) VALUES ('${name}', ${age}, ${salary}, '${address}', '${department}', '${role}')`;
+      postQuery(query).then(() => alert("Inserted successfully")).catch(err => alert(err));
+    }
+
+    function updateEmployee() {
+      const id = document.getElementById("update-id").value;
+      const name = document.getElementById("update-name").value;
+      const role = document.getElementById("update-role").value;
+
+      const query = `UPDATE employee SET name='${name}', role='${role}' WHERE id=${id}`;
+      postQuery(query).then(() => alert("Updated successfully")).catch(err => alert(err));
+    }
+
+    function deleteEmployee() {
+      const id = document.getElementById("delete-id").value;
+      const query = `DELETE FROM employee WHERE id=${id}`;
+      postQuery(query).then(() => alert("Deleted successfully")).catch(err => alert(err));
+    }
+
+    function searchEmployees() {
+      const keyword = document.getElementById("search-keyword").value;
+      const query = `SELECT * FROM employee WHERE name LIKE '%${keyword}%' OR role LIKE '%${keyword}%'`;
+      postQuery(query).then(showResults).catch(err => alert(err));
+      showSection('search-section');
+    }
+
+    function displayAll() {
+      const query = `SELECT * FROM employee`;
+      postQuery(query).then(showResults).catch(err => alert(err));
+      showSection('search-section');
+    }
+
+    function showResults(data) {
+      const resultsDiv = document.getElementById("results");
+      if (!Array.isArray(data) || data.length === 0) {
+        resultsDiv.innerHTML = "<p>No results found.</p>";
+        return;
+      }
+
+      let html = "<table><tr>";
+      for (let key in data[0]) {
+        html += `<th>${key}</th>`;
+      }
+      html += "</tr>";
+      data.forEach(row => {
+        html += "<tr>";
+        for (let key in row) {
+          html += `<td>${row[key]}</td>`;
+        }
+        html += "</tr>";
+      });
+      html += "</table>";
+      resultsDiv.innerHTML = html;
+    }
+
+    function showSection(id) {
+      document.querySelectorAll('.section').forEach(section => {
+        section.style.display = 'none';
+      });
+      document.getElementById(id).style.display = 'block';
+    }
+  </script>
+</body>
+</html>

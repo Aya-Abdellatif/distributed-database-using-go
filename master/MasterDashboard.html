@@ -1,0 +1,407 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Management</title>
+    <style>
+      body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f4f4f4;
+    display: flex;
+    justify-content: center;  /* Horizontally center the contents */
+    align-items: center;      /* Vertically center the contents */
+    min-height: 100vh;        /* Ensure the body takes full viewport height */
+    flex-direction: column;   /* Stack the elements vertically */
+}
+
+nav {
+    background-color: #333;
+    width: 100%;
+    text-align: center;
+}
+
+nav a {
+    display: inline-block;
+    padding: 14px 20px;
+    color: white;
+    text-align: center;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+nav a:hover {
+    background-color: #ddd;
+    color: black;
+}
+nav a i {
+    margin-right: 8px;
+}
+
+
+.landing-page {
+    position: relative;
+    width: 100%;
+    height: 400px;
+    background-image: url('working.jpg');
+    background-size: cover;
+    background-position: center;
+}
+
+.landing-page::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* Black hue with 50% opacity */
+    z-index: 1; /* Ensure overlay is above the image but below text */
+}
+
+.landing-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-family: 'Roboto', sans-serif;
+    font-size: 3em;
+    z-index: 2; /* Ensure text is above the overlay */
+}
+
+.content {
+    padding: 20px;
+    display: flex;
+    justify-content: center; /* Center content horizontally */
+    align-items: center;     /* Center content vertically */
+    flex-direction: column;  /* Stack the content vertically */
+}
+
+.hidden {
+    display: none;
+}
+
+.section {
+    margin: 20px 0;
+    padding: 60px 160px 100px 160px; /* Reduce padding to make the section more compact */
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 600px; /* Set max-width to ensure it doesn't stretch too wide */
+}
+
+.section h1 {
+    font-size: 24px;
+    margin-bottom: 30px;
+}
+
+.section label {
+    font-size: 16px;
+    margin-bottom: 10px; /* Add space below the label */
+    display: block; /* Ensure label appears above input */
+}
+
+.section input, .section select {
+    padding: 10px;
+    margin-bottom: 20px;
+    width: 100%;
+    max-width: 550px; /* Increased from 400px to 550px */
+    font-size: 14px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+}
+
+
+.section button {
+    padding: 12px 18px;
+    font-size: 16px;
+    background-color: #333;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.section button:hover {
+    background-color: #555;
+}
+
+.add-column-button {
+    margin-top: 15px; /* Increase space between buttons */
+    padding: 12px 18px;
+    font-size: 16px;
+    background-color: #272629;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.add-column-button:hover {
+    background-color: #4a4a4a;
+}
+
+    </style>
+</head>
+<body>
+ <div class="landing-page">
+        <div class="landing-text">DB Manager</div>
+    </div>
+
+    <!-- Navigation Bar -->
+    <nav>
+    <a href="#" onclick="showSection('createDatabase')"><i class="fas fa-database"></i> Create Database</a>
+    <a href="#" onclick="showSection('createTable')"><i class="fas fa-table"></i> Create Table</a>
+    <a href="#" onclick="showSection('drop')"><i class="fas fa-trash-alt"></i> Drop Database/Table</a>
+    <a href="#" onclick="showSection('slaveDisplayShutdown')"><i class="fas fa-desktop"></i> Slave Display & Shutdown</a>
+</nav>
+
+
+    <div class="content">
+        <!-- Create Database Section -->
+        <div id="createDatabase" class="section hidden">
+            <h1>Create Database</h1>
+            <label for="newDbName">Database Name:</label>
+            <input type="text" id="newDbName" name="newDbName" required><br><br>
+            <button onclick="createDatabase()">Create Database</button>
+        </div>
+
+        <!-- Create Table Section -->
+        <div id="createTable" class="section hidden">
+            <h1>Create Table</h1>
+            <label for="dbName">Database Name:</label>
+            <input type="text" id="dbName" name="dbName" required><br><br>
+            <form id="createTableForm">
+                <label for="tableName">Table Name:</label>
+                <input type="text" id="tableName" name="tableName" required><br><br>
+
+                <h2>Columns</h2>
+                <div id="columns"></div>
+
+                <button type="button" class="add-column-button" onclick="addColumn()">Add Column</button><br><br>
+                <button type="submit">Create Table</button>
+            </form>
+        </div>
+
+        <!-- Drop Database or Table Section -->
+        <div id="drop" class="section hidden">
+            <h1>Drop Database or Table</h1>
+            <label for="dropDbName">Database Name:</label>
+            <input type="text" id="dropDbName" name="dropDbName" required><br><br>
+            <label for="dropTableName">Table Name (optional):</label>
+            <input type="text" id="dropTableName" name="dropTableName"><br><br>
+            <button onclick="dropDatabase()">Drop Database</button>
+            <button onclick="dropTable()">Drop Table</button>
+        </div>
+
+        <!-- Slave Display & Shutdown Section -->
+      <div id="slaveDisplayShutdown" class="section hidden">
+    <h1>Slave Display & Shutdown</h1>
+    <button onclick="loadSlaves()">Show Slaves</button>
+    <p>Connected Slaves:</p>
+    <ul id="slaveList"></ul>
+</div>
+
+    </div>
+
+    <script>
+        let columnCount = 0;
+
+        function showSection(sectionId) {
+            const sections = document.querySelectorAll('.content > div');
+            sections.forEach(section => section.classList.add('hidden'));
+            document.getElementById(sectionId).classList.remove('hidden');
+        }
+
+        function addColumn() {
+            columnCount++;
+            const columnDiv = document.createElement('div');
+            columnDiv.id = 'column' + columnCount;
+            columnDiv.innerHTML = `
+                <h3>Column ${columnCount}</h3>
+                <label for="columnName${columnCount}">Column Name:</label>
+                <input type="text" id="columnName${columnCount}" name="columnName${columnCount}" required><br><br>
+
+                <label for="dataType${columnCount}">Data Type:</label>
+                <select id="dataType${columnCount}" name="dataType${columnCount}" required>
+                    <option value="INT">INT</option>
+                    <option value="VARCHAR(255)">VARCHAR(255)</option>
+                    <option value="TEXT">TEXT</option>
+                    <option value="DATE">DATE</option>
+                    <option value="FLOAT">FLOAT</option>
+                </select><br><br>
+            `;
+            document.getElementById('columns').appendChild(columnDiv);
+        }
+
+        document.getElementById('createTableForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const dbName = document.getElementById('dbName').value;
+            const tableName = document.getElementById('tableName').value;
+            let columns = [];
+
+            for (let i = 1; i <= columnCount; i++) {
+                const columnName = document.getElementById('columnName' + i).value;
+                const dataType = document.getElementById('dataType' + i).value;
+                columns.push({ name: columnName, type: dataType });
+            }
+
+            const requestData = {
+                database: dbName,
+                query: generateCreateTableQuery(tableName, columns),
+            };
+
+            fetch('/create_table', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestData),
+            })
+            .then(response => response.text())
+            .then(data => alert(data))
+            .catch(error => alert('Error: ' + error));
+        });
+
+        function generateCreateTableQuery(tableName, columns) {
+            let query = `CREATE TABLE ${tableName} (`;
+
+            columns.forEach((column, index) => {
+                query += `${column.name} ${column.type}`;
+                if (index < columns.length - 1) {
+                    query += ', ';
+                }
+            });
+
+            query += ')';
+            return query;
+        }
+
+        function createDatabase() {
+            const dbName = document.getElementById('newDbName').value;
+            if (!dbName) {
+                alert("Please specify a database name");
+                return;
+            }
+
+            const requestData = {
+                database: dbName,
+                query: `CREATE DATABASE IF NOT EXISTS ${dbName};`,
+            };
+
+            fetch('/create_db', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestData),
+            })
+            .then(response => response.text())
+            .then(data => alert(data))
+            .catch(error => alert('Error: ' + error));
+        }
+
+        function dropTable() {
+            const dbName = document.getElementById('dropDbName').value;
+            const tableName = document.getElementById('dropTableName').value;
+
+            if (!dbName || !tableName) {
+                alert("Please specify both database name and table name");
+                return;
+            }
+
+            const requestData = {
+                database: dbName,
+                query: `DROP TABLE IF EXISTS ${tableName};`,
+            };
+
+            fetch('/drop_table', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestData),
+            })
+            .then(response => response.text())
+            .then(data => alert(data))
+            .catch(error => alert('Error: ' + error));
+        }
+
+        function dropDatabase() {
+            const dbName = document.getElementById('dropDbName').value;
+
+            if (!dbName) {
+                alert("Please specify a database name");
+                return;
+            }
+
+            const requestData = {
+                database: dbName,
+            };
+
+            fetch('/drop_db', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestData),
+            })
+            .then(response => response.text())
+            .then(data => alert(data))
+            .catch(error => alert('Error: ' + error));
+        }
+
+       function loadSlaves() {
+        fetch('/slaves')
+            .then(response => response.json())
+            .then(data => {
+                const slaveList = document.getElementById('slaveList');
+                slaveList.innerHTML = '';
+
+                data.slaves.forEach(slaveURL => {
+                    const li = document.createElement('li');
+                    li.style.marginBottom = '10px';
+
+                    // Display slave name (e.g., extract host part or full URL)
+                    const span = document.createElement('span');
+                    span.textContent = slaveURL + ' ';
+                    
+                    // Shutdown button
+                    const btn = document.createElement('button');
+                    btn.textContent = 'Shutdown';
+                    btn.onclick = () => shutdownSlave(slaveURL);
+
+                    li.appendChild(span);
+                    li.appendChild(btn);
+                    slaveList.appendChild(li);
+                });
+            })
+            .catch(error => alert('Error fetching slaves: ' + error));
+    }
+
+    function shutdownSlave(slaveURL) {
+    // Remove "/replicate" from the URL if it exists
+   if (slaveURL.endsWith("/replicate")) {
+    slaveURL = slaveURL.replace(/\/replicate$/, '');
+
+}
+
+
+    fetch('/shutdown-slave', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: slaveURL })
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.text().then(text => { throw new Error(text); });
+        }
+        return response.text();
+    })
+    .then(message => alert(message))
+    .catch(error => alert('Error shutting down slave: ' + error));
+}
+
+    </script>
+
+</body>
+</html>
