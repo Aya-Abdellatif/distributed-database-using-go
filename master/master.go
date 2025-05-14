@@ -1,3 +1,4 @@
+// Master Node (master.go)updated
 package main
 
 import (
@@ -7,7 +8,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-
 	//"os"
 	"strings"
 
@@ -21,15 +21,14 @@ type QueryRequest struct {
 
 var db *sql.DB
 var slaveURLs = []string{
-	"http://192.168.1.142:8081/replicate",
+	"http://192.168.50.36:8081/replicate",
 	//"http://localhost:8082/replicate",
 }
-
 //var masterLogger *log.Logger
 
 func initDB() {
 	var err error
-	db, err = sql.Open("mysql", "root:master_db_pass@tcp(127.0.0.1:3306)/")
+	db, err = sql.Open("mysql", "root:rootroot@tcp(127.0.0.1:3306)/")
 	if err != nil {
 		log.Fatal("Failed to connect to DB:", err)
 	}
@@ -82,7 +81,7 @@ func handleQuery(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(strings.ToLower(req.Query))
 	if strings.HasPrefix(query, "select") {
 		handleSelectQuery(w, req.Query)
-	} else if isWriteOperation(req.Query) || isDatabaseOperation(req.Query) { // && req.IsMaster) {
+	} else if isWriteOperation(req.Query) || isDatabaseOperation(req.Query){// && req.IsMaster) {
 		handleWriteAndReplicate(w, req)
 	} else {
 		http.Error(w, "Unsupported or unauthorized command", http.StatusBadRequest)
@@ -141,7 +140,7 @@ func replicateToSlaves(req QueryRequest) {
 		resp, err := http.Post(url, "application/json", bytes.NewReader(data))
 		if err != nil {
 			log.Println("Replication error to", url, ":", err)
-			return
+			return 
 		}
 		defer resp.Body.Close()
 
