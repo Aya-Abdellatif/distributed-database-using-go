@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	//"os"
+	"os"
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -21,26 +21,24 @@ type QueryRequest struct {
 
 var db *sql.DB
 var slaveURLs = []string{
-	"http://192.168.50.36:8081/replicate",
+	"http://192.168.93.240:8081/replicate",
 	//"http://localhost:8082/replicate",
 }
-//var masterLogger *log.Logger
 
 func initDB() {
 	var err error
-	db, err = sql.Open("mysql", "root:rootroot@tcp(127.0.0.1:3306)/")
+	user := os.Getenv("DB_USER")
+	pass := os.Getenv("DB_PASS")
+	host := os.Getenv("DB_HOST")
+	port := os.Getenv("DB_PORT")
+
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/", user, pass, host, port)
+
+	db, err = sql.Open("mysql", dsn)
 	if err != nil {
-		log.Fatal("Failed to connect to DB:", err)
+		log.Fatal("Failed to connect to MAster DB:", err)
 	}
 }
-
-/*func initLogger() {
-	logFile, err := os.OpenFile("master.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
-	if err != nil {
-		log.Fatal("Error opening log file:", err)
-	}
-	masterLogger = log.New(logFile, "MASTER: ", log.Ldate|log.Ltime|log.Lshortfile)
-}*/
 
 func isDatabaseOperation(query string) bool {
 	q := strings.TrimSpace(strings.ToLower(query))
@@ -54,7 +52,6 @@ func isWriteOperation(query string) bool {
 }
 
 func main() {
-	//initLogger()
 	initDB()
 	defer db.Close()
 
@@ -81,7 +78,7 @@ func handleQuery(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(strings.ToLower(req.Query))
 	if strings.HasPrefix(query, "select") {
 		handleSelectQuery(w, req.Query)
-	} else if isWriteOperation(req.Query) || isDatabaseOperation(req.Query){// && req.IsMaster) {
+	} else if isWriteOperation(req.Query) || isDatabaseOperation(req.Query){
 		handleWriteAndReplicate(w, req)
 	} else {
 		http.Error(w, "Unsupported or unauthorized command", http.StatusBadRequest)

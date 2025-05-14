@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"os"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -17,13 +18,20 @@ type QueryRequest struct {
 }
 
 var db *sql.DB
-var masterAddress = "http://192.168.50.161:8080" // تأكد إن دا IP فعلي للماستر في الشبكة
+var masterAddress = "http://192.168.50.16:8080"
 
 func initDB() {
 	var err error
-	db, err = sql.Open("mysql", "root:rootroot@tcp(127.0.0.1:3306)/")
+	user := os.Getenv("DB_USER")
+	pass := os.Getenv("DB_PASS")
+	host := os.Getenv("DB_HOST")
+	port := os.Getenv("DB_PORT")
+
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/", user, pass, host, port)
+
+	db, err = sql.Open("mysql", dsn)
 	if err != nil {
-		log.Fatal("Failed to connect to slave DB:", err)
+		log.Fatal("Failed to connect to Slave DB:", err)
 	}
 }
 
@@ -55,16 +63,15 @@ func handleQuery(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Received request:", req)
 
 	if isDatabaseOperation(req.Query) {
-		http.Error(w, "Slave not authorized to execute DDL queries", http.StatusForbidden)
+		http.Error(w, "Slave is not authorized to execute DDL queries", http.StatusForbidden)
 		return
 	}
 
-	// Forward write queries to master
 	queryLower := strings.TrimSpace(strings.ToLower(req.Query))
 	if strings.HasPrefix(queryLower, "select") {
 		handleSelectQuery(w, req.Query)
 	} else {
-		// Forward to master
+		// Forward writes only to master
 		jsonData, _ := json.Marshal(req)
 		resp, err := http.Post(masterAddress+"/query", "application/json", strings.NewReader(string(jsonData)))
 		if err != nil {
@@ -78,7 +85,7 @@ func handleQuery(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		w.Write([]byte("Query forwarded to master."))
+		w.Write([]byte("Query forwarded to master successfully."))
 	}
 }
 
