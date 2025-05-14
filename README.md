@@ -68,7 +68,7 @@ distributed-database-using-go/
 
 ## Running the System
 1. **Install dependencies:**
-   ```
+   ```bash
    go mod tidy
    ```
    
@@ -105,10 +105,11 @@ You can adjust the listening port inside `node/node.go`.
 
 ### Slave
 
-| Endpoint     | Method | Description                  |
-| ------------ | ------ | ---------------------------- |
-| `/replicate` | POST   | Receives and applies a query |
-| `/query`     | POST   |                              |
+| Endpoint     | Method | Description                                   |
+| ------------ | ------ | ----------------------------------------------|
+| `/replicate` | POST   | Receives and applies a query                  |
+| `/query`     | POST   | Execute a read-only query (optional endpoint) |
+
 
 ---
 
@@ -118,46 +119,28 @@ Use Postman or `curl` to send HTTP POST requests.
 
 **Create DB**
 
-```json
-POST /create_db
-{
-  "database": "testdb"
-}
+```bash
+curl -X POST http://localhost:8080/query \
+     -H "Content-Type: application/json" \
+     -d '{\"database\": \"\", \"query\": \"CREATE DATABASE company\"}'
 ```
 
 **Create Table**
 
-```json
+```bash
 curl -X POST http://localhost:8080/query \
      -H "Content-Type: application/json" \
-     -d '{"database": "testdb", "query": "CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(50))"}'
+     -d '{\"database\": \"company\", \"query\": \"CREATE TABLE employee (id INT PRIMARY KEY, name VARCHAR(50))\"}'
 ```
 
 **Insert Data**
 
-```json
-POST /query
-{
-  "database": "testdb",
-  "query": "INSERT INTO users (id, name) VALUES (1, 'Aya')"
-}
+```bash
+curl -X POST http://localhost:8080/query \
+     -H "Content-Type: application/json" \
+     -d '{\"database\": \"company\", \"query\": \"INSERT INTO employee (id, name) VALUES (1, \"Aya\")\"}'
+
 ```
-
-**Drop DB**
-
-```json
-POST /drop_db
-{
-  "database": "testdb"
-}
-```
-
----
-
-## Notes
-
-* Slave nodes **must not send queries** directly to the DB. They should only listen to and apply replicated queries.
-* For local testing, you can run Master and multiple Slaves on different ports on the same machine.
 
 ---
 
